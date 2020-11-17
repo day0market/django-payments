@@ -1,0 +1,26 @@
+version: '3'
+
+services:
+  db:
+    image: postgres:12.3
+    ports:
+      - "5437:5432"
+    environment:
+      - POSTGRES_DB=payments
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - app_postgres:/var/lib/postgresql/app_postgres/
+  app:
+    build: payment_app
+    depends_on:
+      - db
+    environment:
+      - DJANGO_ENV_FILE=/home/app/web/.env_sample_docker
+    command: bash -c "python manage.py migrate --noinput & python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - ./payment_app:/home/app/web
+    ports:
+      - "8000:8000"
+volumes:
+  app_postgres:

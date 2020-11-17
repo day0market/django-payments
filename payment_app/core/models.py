@@ -8,6 +8,8 @@ from django.db.models import QuerySet
 
 from .exceptions import *
 
+__all__ = ('Currency', 'Account', 'Transaction', 'Payment')
+
 TransactionType = TypeVar('TransactionType', bound='Transaction')
 AccountType = TypeVar('AccountType', bound='Account')
 PaymentType = TypeVar('PaymentType', bound='Payment')
@@ -55,7 +57,6 @@ class Transaction(models.Model):
     to_account = models.ForeignKey('Account', on_delete=models.CASCADE, related_name='to_account')
 
     amount = models.DecimalField(max_digits=15, decimal_places=2)
-    message = models.TextField(null=True, blank=True)
     state = models.CharField(max_length=8, choices=((STATE_FAILED, STATE_FAILED), (STATE_SUCCEED, STATE_SUCCEED)))
 
     def __str__(self):
@@ -68,28 +69,19 @@ class Transaction(models.Model):
         to_account = Account.get_or_raise(to_account_id)
 
         if not from_account.can_use_currency(currency_code):
-            raise DifferentCurrenciesException(
-                f'Withdrawal account {from_account_id} has currency different from payment currency')
+            raise DifferentCurrenciesException('withdrawal account has currency different from payment currency')
 
         if not to_account.can_use_currency(currency_code):
-            raise DifferentCurrenciesException(
-                f'Target account {from_account_id} has currency different from payment currency')
+            raise DifferentCurrenciesException('target account has currency different from payment currency')
 
         if from_account.balance < amount:
-            raise InsufficientFundsException(f'{from_account_id} has insufficient funds')
+            raise InsufficientFundsException('insufficient funds')
 
         try:
             with transaction.atomic():
                 from_account = Account.objects.select_for_update().filter(id=from_account_id).last()
                 to_account = Account.get_or_raise(to_account_id)
                 if from_account.balance < amount:
-                    cls.objects.create(
-                        from_account=from_account,
-                        to_account=to_account,
-                        amount=amount,
-                        message='insufficient funds',
-                        state=cls.STATE_FAILED,
-                    )
                     raise InsufficientFundsException(f'{from_account_id} has insufficient funds')
 
                 from_account.balance = F('balance') - amount
@@ -101,7 +93,6 @@ class Transaction(models.Model):
                     from_account=from_account,
                     to_account=to_account,
                     amount=amount,
-                    message=None,
                     state=cls.STATE_SUCCEED,
                 )
                 Payment.new_incoming_from_transaction(tx)

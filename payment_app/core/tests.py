@@ -16,6 +16,10 @@ class BaseTestCase(TestCase):
         'mark': account_balance('EUR', Decimal('10.0')),
     }
 
+    def setUp(self) -> None:
+        self.client = Client()
+        self.insert_test_data()
+
     def insert_test_data(self):
         for acc, (currency, balance) in self.test_data.items():
             ccy, _ = Currency.objects.get_or_create(code=currency)
@@ -27,10 +31,6 @@ class BaseTestCase(TestCase):
 
 
 class TestCreateTransaction(BaseTestCase):
-
-    def setUp(self) -> None:
-        self.client = Client()
-        self.insert_test_data()
 
     def test_normal_transfer(self):
         from_account_id = 'john'
@@ -82,3 +82,91 @@ class TestCreateTransaction(BaseTestCase):
                 self.assertIsNone(p.to_account_id)
             else:
                 raise Exception(f'Unknown payment direction: {p.direction}')
+
+    def test_different_currencies(self):
+        # target account currency is different
+        from_account_id = 'john'
+        to_account_id = 'alice'
+        amount = Decimal('50.0')
+        transactions_before = Transaction.objects.all().count()
+        response = self.client.post('/api/v1/transfer/create/', data={
+            'from_account': from_account_id,
+            'to_account': to_account_id,
+            'amount': amount,
+            'currency': 'USD',
+        })
+
+        self.assertEqual(response.status_code, 400)
+        json_ = response.json()
+        self.assertEqual(json_['error'], 'target account has currency different from payment currency')
+        self.assertEqual(Transaction.objects.all().count(), transactions_before)
+
+        # withdrawal account currency is different
+        transactions_before = Transaction.objects.all().count()
+        from_account_id = 'alice'
+        to_account_id = 'john'
+        amount = Decimal('50.0')
+        response = self.client.post('/api/v1/transfer/create/', data={
+            'from_account': from_account_id,
+            'to_account': to_account_id,
+            'amount': amount,
+            'currency': 'USD',
+        })
+
+        self.assertEqual(response.status_code, 400)
+        json_ = response.json()
+        self.assertEqual(json_['error'], 'withdrawal account has currency different from payment currency')
+        self.assertEqual(Transaction.objects.all().count(), transactions_before)
+
+    def test_insufficient_funds(self):
+        from_account_id = 'john'
+        to_account_id = 'bob'
+        amount = self.test_data[from_account_id].balance + Decimal('1.0')
+        transactions_before = Transaction.objects.all().count()
+        response = self.client.post('/api/v1/transfer/create/', data={
+            'from_account': from_account_id,
+            'to_account': to_account_id,
+            'amount': amount,
+            'currency': 'USD',
+        })
+
+        self.assertEqual(response.status_code, 400)
+        json_ = response.json()
+        self.assertEqual(json_['error'], 'insufficient funds')
+        self.assertEqual(Transaction.objects.all().count(), transactions_before)
+
+        from_account = Account.objects.get(id=from_account_id)
+        to_account = Account.objects.get(id=to_account_id)
+        self.assertEqual(from_account.balance, self.test_data[from_account_id].balance)
+        self.assertEqual(to_account.balance, self.test_data[to_account_id].balance)
+
+
+class TestAccountsEndpoint(BaseTestCase):
+
+    def test_all_accounts(self):
+        response = self.client.get('/api/v1/accounts/')
+        self.assertEqual(response.status_code, 200)
+        json_ = response.json()
+        self.assertEqual(len(json_), len(self.test_data))
+        for i, account_id in enumerate(self.test_data.keys()):
+            resp_entry = json_[i]
+            self.assertEqual(resp_entry['id'], account_id)
+            self.assertEqual(Decimal(resp_entry['balance']), self.test_data[account_id].balance)
+            self.assertEqual(resp_entry['currency'], self.test_data[account_id].currency)
+
+
+class TestPaymentsEndpoint(BaseTestCase):
+
+    def test_payments_endpoint(self):
+        Transaction.create_new(from_account_id='john', to_account_id='bob', amount=Decimal('10'), currency_code='USD')
+        Transaction.create_new(from_account_id='alice', to_account_id='mark', amount=Decimal('10'), currency_code='EUR')
+
+        # sanity check
+        self.assertEqual(Payment.objects.all().count(), 4)
+
+        response = self.client.get('/api/v1/accounts/')
+        self.assertEqual(response.status_code, 200)
+        json_ = response.json()
+
+        # should be 4 payments from 2 transactions (2 incoming, 2 outgoing)
+        self.assertEqual(len(json_), 4)
