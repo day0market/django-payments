@@ -1,5 +1,8 @@
 from rest_framework.exceptions import APIException
 
+__all__ = ('AccountNotFoundException', 'DifferentCurrenciesException',
+           'InsufficientFundsException', 'ErrorProcessingException')
+
 
 class AccountNotFoundException(APIException):
     status_code = 404
@@ -16,12 +19,6 @@ class DifferentCurrenciesException(APIException):
 class InsufficientFundsException(APIException):
     status_code = 400
     default_detail = 'Insufficient funds'
-    default_code = 'bad_request'
-
-
-class AccountBalanceDropsBelowZeroException(APIException):
-    status_code = 400
-    default_detail = 'Account balance drops below 0'
     default_code = 'bad_request'
 
 

@@ -1,0 +1,299 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "API",
+    "description": "Endpoints API docs",
+    "version": "v1"
+  },
+  "host": "127.0.0.1:8000",
+  "schemes": [
+    "http"
+  ],
+  "basePath": "/api/v1",
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "securityDefinitions": {
+    "Basic": {
+      "type": "basic"
+    }
+  },
+  "security": [
+    {
+      "Basic": []
+    }
+  ],
+  "paths": {
+    "/accounts/": {
+      "get": {
+        "operationId": "accounts_list",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Account"
+              }
+            }
+          }
+        },
+        "tags": [
+          "accounts"
+        ]
+      },
+      "parameters": []
+    },
+    "/accounts/{id}/": {
+      "get": {
+        "operationId": "accounts_read",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/Account"
+            }
+          }
+        },
+        "tags": [
+          "accounts"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "description": "A unique value identifying this account.",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    "/payments/": {
+      "get": {
+        "operationId": "payments_list",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Payment"
+              }
+            }
+          }
+        },
+        "tags": [
+          "payments"
+        ]
+      },
+      "parameters": []
+    },
+    "/payments/{id}/": {
+      "get": {
+        "operationId": "payments_read",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/Payment"
+            }
+          }
+        },
+        "tags": [
+          "payments"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "description": "A unique integer value identifying this payment.",
+          "required": true,
+          "type": "integer"
+        }
+      ]
+    },
+    "/transfer/create/": {
+      "post": {
+        "operationId": "transfer_create_create",
+        "description": "",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/NewTransaction"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/Transaction"
+            }
+          },
+          "400": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "description": "Error description",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "transfer"
+        ]
+      },
+      "parameters": []
+    }
+  },
+  "definitions": {
+    "Account": {
+      "required": [
+        "id",
+        "currency"
+      ],
+      "type": "object",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string",
+          "minLength": 1
+        },
+        "balance": {
+          "title": "Balance",
+          "type": "string",
+          "format": "decimal"
+        },
+        "currency": {
+          "title": "Currency",
+          "type": "string"
+        }
+      }
+    },
+    "Payment": {
+      "required": [
+        "account",
+        "amount",
+        "direction"
+      ],
+      "type": "object",
+      "properties": {
+        "account": {
+          "title": "Account",
+          "type": "string"
+        },
+        "from_account": {
+          "title": "From account",
+          "type": "string",
+          "x-nullable": true
+        },
+        "to_account": {
+          "title": "To account",
+          "type": "string",
+          "x-nullable": true
+        },
+        "amount": {
+          "title": "Amount",
+          "type": "string",
+          "format": "decimal"
+        },
+        "direction": {
+          "title": "Direction",
+          "type": "string",
+          "enum": [
+            "incoming",
+            "outgoing"
+          ]
+        }
+      }
+    },
+    "NewTransaction": {
+      "required": [
+        "from_account",
+        "to_account",
+        "amount",
+        "currency"
+      ],
+      "type": "object",
+      "properties": {
+        "from_account": {
+          "title": "From account",
+          "type": "string",
+          "minLength": 1
+        },
+        "to_account": {
+          "title": "To account",
+          "type": "string",
+          "minLength": 1
+        },
+        "amount": {
+          "title": "Amount",
+          "type": "string",
+          "format": "decimal"
+        },
+        "currency": {
+          "title": "Currency",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "Transaction": {
+      "required": [
+        "amount",
+        "state",
+        "from_account",
+        "to_account"
+      ],
+      "type": "object",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "integer",
+          "readOnly": true
+        },
+        "amount": {
+          "title": "Amount",
+          "type": "string",
+          "format": "decimal"
+        },
+        "state": {
+          "title": "State",
+          "type": "string",
+          "enum": [
+            "failed",
+            "succeed"
+          ]
+        },
+        "from_account": {
+          "title": "From account",
+          "type": "string"
+        },
+        "to_account": {
+          "title": "To account",
+          "type": "string"
+        }
+      }
+    }
+  }
+}
